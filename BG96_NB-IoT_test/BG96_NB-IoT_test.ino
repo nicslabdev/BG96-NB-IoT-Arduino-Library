@@ -40,6 +40,10 @@ void setup()
     {
         Serial.println("===== Application: Everything worked properly");
     }
+    else
+    {
+        Serial.println("===== Application: Something went wrong");
+    }
 
     nbiot.shutdown();
 }

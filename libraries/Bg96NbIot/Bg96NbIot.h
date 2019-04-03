@@ -1,7 +1,7 @@
 /*********************************************************************************************/
 /*
- * BG96 NB-IoT Arduino library V 1.0
- * Created by Manuel Montenegro, April 01, 2019.
+ * BG96 NB-IoT Arduino library V 2.0
+ * Created by Manuel Montenegro, April 03, 2019.
  * Developed for MOTAM proyect. 
  * 
  *  This library manages communication with BG96 NB-IoT Module.
@@ -30,9 +30,12 @@ public:
 	bool begin ();						// Init serial port and register the module in the network
 	String getIP();						// Return IP of BG96 module
 	String getIMEI();					// Return IMEI of card inserted in SODAQ module
-	bool openSocket (String sAddress, int sPort);	// Open TCP socket in designated port
+	bool openSocket (String sAddress, int sPort);	// Open TCP socket
+	bool openSslSocket (String sAdrress, int sPort);// Open SSL socket
 	bool sendData (String data);		// Send data by socket connection
+	bool sendDataBySsl (String data);	// Send data by SSL socket connection
 	String receiveData (); 				// Return received data from network
+	String receiveDatabySsl ();			// Return received data from network by SSL socket
 	bool shutdown ();					// Shutdown the module
 
 private:
@@ -53,10 +56,13 @@ private:
 	bool checkRespForOpSelection ();	// Check response looking for Ok or error on operator selection
 	String checkRespForIp();			// Check response looking for IP given by network
 	bool checkRespForSocket();			// Check response looking for socket opened
+	bool checkRespForSslSocket();		// Check response looking for SSL socket opened
 	String checkRespForImei();			// Check response looking for IMEI
 	bool checkRespIfDataSent();			// Check if data was sent
 	bool checkRespIfDataReceived();		// Return if there are data received from host Server
+	bool checkRespIfDataReceivedBySsl();// Return if there are data received from SSL socket from host Server 
 	String checkRespForHostResponse();	// Check response looking for data received from host server
+	String checkRespForHostResponseBySsl();	// Check response looking for data received from host server by SSL socket
 	bool checkRespIfInputDataChar();	// Check response for '>' character: module is waiting for data
 	bool checkRespForPoweredDown ();	// Check response for powered down message
 

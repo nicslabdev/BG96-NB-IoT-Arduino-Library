@@ -1,7 +1,7 @@
 /*********************************************************************************************/
 /*
- * BG96 NB-IoT Arduino library V 1.0
- * Created by Manuel Montenegro, April 01, 2019.
+ * BG96 NB-IoT Arduino library V 2.0
+ * Created by Manuel Montenegro, April 03, 2019.
  * Developed for MOTAM proyect. 
  * 
  *  This library manages communication with BG96 NB-IoT Module.
@@ -44,7 +44,7 @@ String Bg96NbIot::getIMEI()
 }
 
 
-// Open a TCP socket in port passed by parameter. Return true if correct.
+// Open a TCP socket. Return true if correct.
 bool Bg96NbIot::openSocket (String sAddress, int sPort)
 {
 	bool flag = true;					// Flag for checking correct working of AT commands
@@ -67,7 +67,64 @@ bool Bg96NbIot::openSocket (String sAddress, int sPort)
 	return flag;
 }
 
+// Open a SSL socket. Return true if correct.
+bool Bg96NbIot::openSslSocket (String sAddress, int sPort)
+{
+	bool flag = true;
 
+	String atCommand;
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"sslversion\","+String(socket)+",3";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"ciphersuite\","+String(socket)+",0XFFFF";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"seclevel\","+String(socket)+",2";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"cacert\","+String(socket)+",\"ca.crt\"";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"clientcert\","+String(socket)+",\"trafficLight.crt\"";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCFG=\"clientkey\","+String(socket)+",\"trafficLight.key\"";
+		sendIt(atCommand);
+		flag = checkRespForOk ( 300 );
+	}
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLOPEN=1,"+String(socket)+","+String(socket)+",\""+sAddress+"\","+sPort+",0";
+		sendIt(atCommand);
+		flag = checkRespForSslSocket ( );
+	}
+
+	return flag;
+}
 
 /* 
  *	Send data to remote server.
@@ -76,6 +133,32 @@ bool Bg96NbIot::openSocket (String sAddress, int sPort)
 bool Bg96NbIot::sendData (String data) 
 {
 	String atCommand = "AT+QISEND="+String(socket)+","+String(data.length());
+
+	bool flag = true;					// Flag for checking correct working of AT commands
+
+	if (flag) 
+	{
+		sendIt(atCommand);
+		flag = checkRespIfInputDataChar ( );
+	}
+
+	if (flag)
+	{
+		sendIt(data);
+		flag = checkRespIfDataSent();
+	}
+
+	return flag;
+}
+
+
+/* 
+ *	Send data to remote server by SSL.
+ *	Return true if send data is correct or false if error 
+*/
+bool Bg96NbIot::sendDataBySsl (String data)
+{
+	String atCommand = "AT+QSSLSEND="+String(socket)+","+String(data.length());
 
 	bool flag = true;					// Flag for checking correct working of AT commands
 
@@ -112,6 +195,29 @@ String Bg96NbIot::receiveData ()
 		String atCommand = "AT+QIRD="+String(socket);
 		sendIt(atCommand);
 		receivedData = checkRespForHostResponse();
+	}
+
+	return receivedData;
+}
+
+
+// Receive data from BG96 SSL socket and return it in string format.
+String Bg96NbIot::receiveDatabySsl () 
+{
+	bool flag = true;					// Flag for checking correct working of AT commands
+
+	String receivedData = "";
+
+	if (flag)
+	{
+		flag = checkRespIfDataReceivedBySsl ();
+	}
+
+	if (flag) 
+	{
+		String atCommand = "AT+QSSLRECV="+String(socket);
+		sendIt(atCommand);
+		receivedData = checkRespForHostResponseBySsl();
 	}
 
 	return receivedData;
@@ -407,6 +513,24 @@ bool Bg96NbIot::checkRespForSocket ( )
 }
 
 
+// Check if SSL socket is opened in the response from BG96 module
+bool Bg96NbIot::checkRespForSslSocket ( ) 
+{
+	int timeOut = 150000;
+	String response;
+	bool ok = false;
+	unsigned long startTime = millis();	// Take time at start for time out
+
+	while ( !ok && ((millis()-startTime) <= (unsigned long) timeOut) ) {
+		response += receiveIt();
+		// Check all the response is received
+		ok = ((response.indexOf("\r\nOK\r\n") >= 0) && (response.indexOf("+QSSLOPEN: "+String(socket)+",0"))>=0);
+	}
+
+	return ok;
+}
+
+
 
 /* Check for confirmation of correct sending in the response from BG96 module.
 *	Return number of bytes BG96 sent or -1 if error 
@@ -429,7 +553,7 @@ bool Bg96NbIot::checkRespIfDataSent ()
 	return ok;
 }
 
-// Check response for '>' character: module is waiting for data
+// Check response for data received message from BG96 module
 bool Bg96NbIot::checkRespIfDataReceived () 
 {
 	int timeOut = 5000;
@@ -447,13 +571,34 @@ bool Bg96NbIot::checkRespIfDataReceived ()
 }
 
 
+/* 
+* Check response for data received from SSL socket from BG96 module.
+*	return true if data received 
+*/
+bool Bg96NbIot::checkRespIfDataReceivedBySsl () 
+{
+	int timeOut = 5000;
+	String response;
+	bool ok = false;
+	unsigned long startTime = millis();	// Take time at start for time out
+
+	while ( !ok && ((millis()-startTime) <= (unsigned long) timeOut) )
+	{
+		response += receiveIt();
+		ok = (response.indexOf("\r\n+QSSLURC: \"recv\","+String(socket)+"\r\n") >= 0);	// Check all the response is received
+	}
+
+	return ok;
+}
+
+
 /* Check response looking for data received from host server
 *  	Return data received from host
 */
 String Bg96NbIot::checkRespForHostResponse()
 {
 	int timeOut = 1000;
-	String response;
+	String response = "";
 	bool ok = false;
 	bool error = false;
 
@@ -480,6 +625,42 @@ String Bg96NbIot::checkRespForHostResponse()
 }
 
 
+
+/* Check response looking for data received from host server by SSL
+*  	Return data received from host
+*/
+String Bg96NbIot::checkRespForHostResponseBySsl()
+{
+	int timeOut = 10000;
+	String response = "";
+	bool ok = false;
+	bool error = false;
+
+	unsigned long startTime = millis();	// Take time at start for time out
+
+	while ( !error && !ok && ((millis()-startTime) <= (unsigned long) timeOut) )
+	{
+		response += receiveIt();
+		ok = (response.indexOf("\r\nOK\r\n") >= 0);
+		error = response.indexOf("\r\nERROR\r\n") >= 0;
+	}
+
+	// Capture from BG96 response the number of bytes received from host
+	String keyWord = "+QSSLRECV: ";
+	response = response.substring(response.indexOf(keyWord));	// Delete the first empty line (\r\n)
+
+	// Discard AT commands information from response and keep only data received from host
+	int startPos = response.indexOf("\r\n")+2;
+	int endPos = response.indexOf("\r\n\r\n\r\nOK\r\n");
+
+	response = response.substring(startPos, endPos);
+
+	return response;
+}
+
+
+
+// Check response for '>' character: module is waiting for data
 bool Bg96NbIot::checkRespIfInputDataChar () 
 {
 	int timeOut = 300;
@@ -513,6 +694,8 @@ bool Bg96NbIot::checkRespForPoweredDown ()
 		ok = (response.indexOf("\r\nOK\r\nPOWERED DOWN\r\n") >= 0);
 	}
 
+	delay(1000);						// Time neccesary for actually power down
+
 	return ok;
 }
 
@@ -529,7 +712,7 @@ void Bg96NbIot::sendIt ( String atCommand )
 #ifdef DEBUGMODE
 	printIt("-- "+atCommand);			// Print AT command sended
 #endif
-	BG96.print (atCommand);		// Send AT command to BG96 module
+	BG96.print (atCommand);				// Send AT command to BG96 module
 }
 
 
@@ -541,7 +724,6 @@ String Bg96NbIot::receiveIt ( )
 
 	// Save data received from BG96 module
 	while (BG96.available()) {
-		// delay(1);						// Neccesary for don't split strings
 		received += (char)BG96.read ();
 	}
 #ifdef DEBUGMODE
@@ -556,7 +738,7 @@ String Bg96NbIot::receiveIt ( )
 // Print something by DEBUG serial port
 void Bg96NbIot::printIt ( String text ) 
 {
-	if (text.length() > 0) {			// If string is not empty...
-		DEBUG.print(text);			// Send by debug serial port the string
+	if (text.length() > 0) {			// If string is not empty ...
+		DEBUG.print(text);				// Send by debug serial port the string
 	}
 }
