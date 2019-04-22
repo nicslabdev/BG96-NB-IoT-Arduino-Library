@@ -1,7 +1,7 @@
 /*********************************************************************************************/
 /*
- * BG96 NB-IoT Arduino library V 2.0
- * Created by Manuel Montenegro, April 03, 2019.
+ * BG96 NB-IoT Arduino library V 2.1
+ * Created by Manuel Montenegro, April 22, 2019.
  * Developed for MOTAM proyect. 
  * 
  *  This library manages communication with BG96 NB-IoT Module.
@@ -32,6 +32,7 @@ public:
 	String getIMEI();					// Return IMEI of card inserted in SODAQ module
 	bool openSocket (String sAddress, int sPort);	// Open TCP socket
 	bool openSslSocket (String sAdrress, int sPort);// Open SSL socket
+	bool closeSslSocket ();				// Close SSL socket
 	bool sendData (String data);		// Send data by socket connection
 	bool sendDataBySsl (String data);	// Send data by SSL socket connection
 	String receiveData (); 				// Return received data from network

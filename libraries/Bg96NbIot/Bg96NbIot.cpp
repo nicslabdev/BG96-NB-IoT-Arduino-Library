@@ -1,7 +1,7 @@
 /*********************************************************************************************/
 /*
- * BG96 NB-IoT Arduino library V 2.0
- * Created by Manuel Montenegro, April 03, 2019.
+ * BG96 NB-IoT Arduino library V 2.1
+ * Created by Manuel Montenegro, April 22, 2019.
  * Developed for MOTAM proyect. 
  * 
  *  This library manages communication with BG96 NB-IoT Module.
@@ -23,7 +23,7 @@ Bg96NbIot::Bg96NbIot ()
 // Start BG96 module
 bool Bg96NbIot::begin ()
 {
-	BG96.begin(115200);					// Start serial port with BG96. AT+IPR selects the baudrate of module
+	BG96.begin(9600);					// Start serial port with BG96. AT+IPR selects the baudrate of module
 	DEBUG.begin(115200);				// Start serial port for debugging
 
 	while(!BG96);						// Wait until BG96's serial connection is stablished
@@ -126,6 +126,23 @@ bool Bg96NbIot::openSslSocket (String sAddress, int sPort)
 	return flag;
 }
 
+// Close SSL socket. Return true if correct.
+bool Bg96NbIot::closeSslSocket ()
+{
+	bool flag = true;
+
+	String atCommand;
+
+	if (flag)
+	{
+		atCommand = "AT+QSSLCLOSE="+String(socket);
+		sendIt(atCommand);
+		flag = checkRespForOk ( 30000 );
+	}
+
+	return flag;
+}
+
 /* 
  *	Send data to remote server.
  *	Return true if send data is correct or false if error 
@@ -220,6 +237,8 @@ String Bg96NbIot::receiveDatabySsl ()
 		receivedData = checkRespForHostResponseBySsl();
 	}
 
+	// closeSslSocket();
+
 	return receivedData;
 }
 
@@ -238,6 +257,9 @@ bool Bg96NbIot::shutdown ()
 		sendIt ("AT+QPOWD=1");
 		flag = checkRespForPoweredDown ();
 	}
+
+	ip = "";
+	imei = "";
 
 	return flag;	
 }
@@ -324,7 +346,7 @@ bool Bg96NbIot::networkRegistration ()
 		atCommand += "\",9";
 
 		sendIt (atCommand);				// Send AT command
-		flag = checkRespForOpSelection ();;
+		flag = checkRespForOpSelection ();
 	}
 
 	if (flag)
@@ -641,6 +663,7 @@ String Bg96NbIot::checkRespForHostResponseBySsl()
 	while ( !error && !ok && ((millis()-startTime) <= (unsigned long) timeOut) )
 	{
 		response += receiveIt();
+
 		ok = (response.indexOf("\r\nOK\r\n") >= 0);
 		error = response.indexOf("\r\nERROR\r\n") >= 0;
 	}
